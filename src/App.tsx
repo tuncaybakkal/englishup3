@@ -10,15 +10,20 @@ import DifficultyFilter from './components/DifficultyFilter';
 
 type Filter = Difficulty | 'all';
 
-function getRandomSentence(list: Sentence[]): Sentence {
-  return list[Math.floor(Math.random() * list.length)];
+function getRandomSentenceExcluding(list: Sentence[], excludeIds: Set<number>): Sentence {
+  const available = list.filter(s => !excludeIds.has(s.id));
+  if (available.length === 0) return list[Math.floor(Math.random() * list.length)];
+  return available[Math.floor(Math.random() * available.length)];
 }
 
 export default function App() {
   const [filter, setFilter] = useState<Filter>('all');
-  const [current, setCurrent] = useState<Sentence>(() =>
-    getRandomSentence(sentences)
-  );
+  const [recentIds, setRecentIds] = useState<number[]>([]);
+  const [current, setCurrent] = useState<Sentence>(() => {
+    const randomSentence = sentences[Math.floor(Math.random() * sentences.length)];
+    setRecentIds([randomSentence.id]);
+    return randomSentence;
+  });
   const [userAnswer, setUserAnswer] = useState('');
   const [checked, setChecked] = useState(false);
   const [result, setResult] = useState<ComparisonResult | null>(null);
@@ -28,16 +33,22 @@ export default function App() {
     : sentences.filter(s => s.difficulty === filter);
 
   const handleRefresh = useCallback(() => {
-    setCurrent(getRandomSentence(filteredSentences));
+    const excludeSet = new Set(recentIds.slice(-10));
+    const newSentence = getRandomSentenceExcluding(filteredSentences, excludeSet);
+    setCurrent(newSentence);
+    setRecentIds(prev => [...prev, newSentence.id].slice(-10));
     setUserAnswer('');
     setChecked(false);
     setResult(null);
-  }, [filteredSentences]);
+  }, [filteredSentences, recentIds]);
 
   const handleDifficultyChange = (d: Filter) => {
     setFilter(d);
     const pool = d === 'all' ? sentences : sentences.filter(s => s.difficulty === d);
-    setCurrent(getRandomSentence(pool));
+    const excludeSet = new Set(recentIds.slice(-10));
+    const newSentence = getRandomSentenceExcluding(pool, excludeSet);
+    setCurrent(newSentence);
+    setRecentIds(prev => [...prev, newSentence.id].slice(-10));
     setUserAnswer('');
     setChecked(false);
     setResult(null);
